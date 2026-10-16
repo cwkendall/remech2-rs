@@ -1,0 +1,51 @@
+name: macOS
+
+# The native Apple Silicon build. On tags, a zip for the release beside
+# upstream's Windows and Linux builds.
+on:
+  push:
+    branches: ["macos", "remaster"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the version comes from git describe
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Tools
+        if: hashFiles('macos/Cargo.toml') != ''
+        working-directory: macos
+        run: cargo test --release
+
+      - name: Package
+        run: |
+          mkdir ReMech2-macOS
+          cp target/release/remech2 ReMech2-macOS/
+          codesign --force --sign - ReMech2-macOS/remech2
+          cp macos/README.md ReMech2-macOS/README.md
+          ditto -c -k --keepParent ReMech2-macOS ReMech2-macOS-arm64.zip
+
+      - name: Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReMech2-macOS-arm64
+          path: ReMech2-macOS-arm64.zip
+
+      - name: Add to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ReMech2-macOS-arm64.zip
+          prerelease: true

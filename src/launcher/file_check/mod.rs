@@ -48,12 +48,24 @@ impl FileCheck {
 
     fn pick_folder(&mut self) {
         let (sender, receiver) = mpsc::channel();
+
+        // macos: rfd panics off the main thread because winit doesn't run NSApp
+        #[cfg(target_os = "macos")]
+        {
+            let folder = rfd::FileDialog::new()
+                .set_title("Locate the MechWarrior 2 files")
+                .pick_folder();
+            let _ = sender.send(folder);
+        }
+
+        #[cfg(not(target_os = "macos"))]
         std::thread::spawn(move || {
             let folder = rfd::FileDialog::new()
                 .set_title("Locate the MechWarrior 2 files")
                 .pick_folder();
             let _ = sender.send(folder);
         });
+
         self.picked_folder = Some(receiver);
     }
 
